@@ -5,10 +5,10 @@ import react from '@vitejs/plugin-react'
 import NestedStringMap from "./src/components/NestedStringMap";
 import optimizer from "vite-plugin-optimizer";
 
-let getReplacer = () => {
-  let externalModels = ["electron", "os", "fs", "path", "events", "child_process", "crypto", "http", "buffer", "url", "better-sqlite3", "knex"];
-  let result = {} as NestedStringMap;
-  for (let item of externalModels) {
+const getReplacer = () => {
+  const externalModels = ["electron", "os", "fs", "path", "events", "child_process", "crypto", "http", "buffer", "url", "better-sqlite3", "knex"];
+  const result = {} as NestedStringMap;
+  for (const item of externalModels) {
     result[item] = () => ({
       find: new RegExp(`^${item}$`),
       code: `const ${item} = require('${item}');export { ${item} as default }`,

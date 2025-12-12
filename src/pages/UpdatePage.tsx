@@ -1,6 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import VersionManager from '../utils/VersionManager';
 import './UpdatePage.css';
+
+type UpdateInfo = {
+  version: string
+  min_version?: string
+  update: {
+    windows?: string
+    macos?: string
+  }
+}
 
 const getPlatform = () => {
   if (window.navigator.platform.toLowerCase().includes('win')) {
@@ -14,17 +23,11 @@ const getPlatform = () => {
 const UpdatePage: React.FC = () => {
   const [status, setStatus] = useState<string>('checking');
   const [message, setMessage] = useState<string>('正在检查更新...');
-  const [updateInfo, setUpdateInfo] = useState<any>(null);
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isForceUpdate, setIsForceUpdate] = useState<boolean>(false);
 
-  useEffect(() => {
-    setTimeout(() => {
-      checkForUpdates();
-    }, 100);
-  }, []);
-
-  const checkForUpdates = async () => {
+  const checkForUpdates = useCallback(async () => {
     try {
       setStatus('checking');
       setMessage('正在检查更新...');
@@ -32,8 +35,7 @@ const UpdatePage: React.FC = () => {
         throw new Error('Electron API 不可用');
       }
       const updateData = await window.electronAPI.checkUpdate();
-      setUpdateInfo(updateData);
-      const platform = getPlatform();
+      setUpdateInfo(updateData as UpdateInfo);
       const needsAppUpdate = VersionManager.needsAppUpdate(updateData.version);
       const forceUpdate = updateData.min_version ? VersionManager.needsForceUpdate(updateData.min_version) : false;
       if (needsAppUpdate) {
@@ -49,27 +51,34 @@ const UpdatePage: React.FC = () => {
         setMessage('已是最新版本');
         setTimeout(() => finishUpdate(), 1500);
       }
-    } catch (error: any) {
+    } catch (error) {
+      const msg = (error as Error).message || '未知错误';
       setStatus('error');
-      setError(error.message || '未知错误');
-      setMessage(`检查更新失败: ${error.message || '未知错误'}`);
+      setError(msg);
+      setMessage(`检查更新失败: ${msg}`);
       setTimeout(() => finishUpdate(), 5000);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    setTimeout(() => {
+      checkForUpdates();
+    }, 100);
+  }, [checkForUpdates]);
 
   const handleAppUpdate = async () => {
     try {
       const platform = getPlatform();
-      const updateUrl = updateInfo.update[platform];
+      const updateUrl = updateInfo!.update[platform as keyof UpdateInfo["update"]];
       if (updateUrl) {
         setMessage('正在打开下载页面...');
         await window.electronAPI.handleAppUpdate(updateUrl);
       } else {
         throw new Error('找不到对应平台的更新包');
       }
-    } catch (error: any) {
+    } catch (error) {
       setStatus('error');
-      setError(error.message);
+      setError((error as Error).message);
       setMessage('打开下载页面失败');
     }
   };
