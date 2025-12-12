@@ -1,23 +1,21 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import IFrame from "../components/IFrame"
 import i18n, { t } from "../utils/i18n"
 import "./Dev.css"
 
-const DevPage = () => {
-  const [language, setLanguage] = useState(i18n.getCurrentLanguage())
-  const iframeRef = useRef(null)
+const DevPage: React.FC = () => {
+  const [language, setLanguage] = useState<string>(i18n.getCurrentLanguage())
+  const iframeRef = useRef<any>(null)
 
-  // 监听语言变化
   useEffect(() => {
-    const handleLanguageChange = (event) => {
+    const handleLanguageChange = (event: any) => {
       setLanguage(event.detail.language)
     }
-
-    window.addEventListener("languageChanged", handleLanguageChange)
+    window.addEventListener("languageChanged", handleLanguageChange as EventListener)
     return () => {
-      window.removeEventListener("languageChanged", handleLanguageChange)
+      window.removeEventListener("languageChanged", handleLanguageChange as EventListener)
     }
   }, [])
 

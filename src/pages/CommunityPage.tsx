@@ -1,79 +1,77 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import IFrame from "../components/IFrame"
 import i18n, { t } from "../utils/i18n"
-import "./OnlineToolsPage.css"
+import "./CommunityPage.css"
 
-const OnlineToolsPage = () => {
-  const [communityData, setOnlineToolsData] = useState([])
-  const [hotPages, setHotPages] = useState([])
-  const [selectedSite, setSelectedSite] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [language, setLanguage] = useState(i18n.getCurrentLanguage())
-  const [activeTab, setActiveTab] = useState("community") // "community" or "hotpages"
-  const iframeRef = useRef(null)
+const CommunityPage: React.FC = () => {
+  const [communityData, setCommunityData] = useState<any[]>([])
+  const [hotPages, setHotPages] = useState<any[]>([])
+  const [selectedSite, setSelectedSite] = useState<any | null>(null)
+  const [loading, setLoading] = useState<boolean>(true)
+  const [error, setError] = useState<string | null>(null)
+  const [language, setLanguage] = useState<string>(i18n.getCurrentLanguage())
+  const [activeTab, setActiveTab] = useState<string>("community")
+  const iframeRef = useRef<any>(null)
 
-  // 监听语言变化
   useEffect(() => {
-    const handleLanguageChange = (event) => {
+    const handleLanguageChange = (event: any) => {
       setLanguage(event.detail.language)
     }
-
-    window.addEventListener("languageChanged", handleLanguageChange)
+    window.addEventListener("languageChanged", handleLanguageChange as EventListener)
     return () => {
-      window.removeEventListener("languageChanged", handleLanguageChange)
+      window.removeEventListener("languageChanged", handleLanguageChange as EventListener)
     }
   }, [])
 
-  // 获取社区数据
   useEffect(() => {
     const fetchCommunityData = async () => {
       try {
         setLoading(true)
-
-        // 获取社区数据
         if (window.electronAPI) {
-          const communityResponse = await window.electronAPI.fetch("https://7th.rhythmdoctor.top/api/tools/get_onlinetools.php")
+          const communityResponse = await window.electronAPI.fetch("https://7th.rhythmdoctor.top/api/community/get_community.php")
           const communityText = await communityResponse
-          const result = JSON.parse(communityText)
-          
-          // 检查API响应是否成功
-          if (!result.success) {
-            throw new Error(result.message || "获取在线工具列表失败")
+          const communityResult = JSON.parse(communityText as string)
+          if (!communityResult.success) {
+            throw new Error(communityResult.message || "获取社区列表失败")
           }
-          
-          const downloads = result.data?.downloads || []
-          setOnlineToolsData(downloads)
-
-          // 默认选中第一个社区网站
-          if (downloads.length > 0) {
-            setSelectedSite(downloads[0])
+          const communityDownloads = communityResult.data?.downloads || []
+          setCommunityData(communityDownloads)
+          const hotPagesResponse = await window.electronAPI.fetch("https://7th.rhythmdoctor.top/api/hotpages/get_hotpages.php")
+          const hotPagesText = await hotPagesResponse
+          const hotPagesResult = JSON.parse(hotPagesText as string)
+          if (!hotPagesResult.success) {
+            throw new Error(hotPagesResult.message || "获取热门页面失败")
+          }
+          const hotPagesData = hotPagesResult.data || []
+          setHotPages(hotPagesData)
+          if (communityDownloads.length > 0) {
+            setSelectedSite(communityDownloads[0])
           }
         } else {
           throw new Error("Electron API not available")
         }
-      } catch (err) {
+      } catch (err: any) {
         setError(err.message)
-        console.error("获取在线工具数据失败:", err)
+        console.error("获取社区数据失败:", err)
       } finally {
         setLoading(false)
       }
     }
-
     fetchCommunityData()
   }, [])
 
-  const handleSiteSelect = (site) => {
+  const handleSiteSelect = (site: any) => {
     setSelectedSite(site)
   }
 
-  const handleTabChange = (tab) => {
+  const handleTabChange = (tab: string) => {
     setActiveTab(tab)
-    // 切换标签时选择对应数据的第一项
     if (tab === "community" && communityData.length > 0) {
       setSelectedSite(communityData[0])
+    } else if (tab === "hotpages" && hotPages.length > 0) {
+      setSelectedSite(hotPages[0])
     }
   }
 
@@ -81,11 +79,10 @@ const OnlineToolsPage = () => {
     return activeTab === "community" ? communityData : hotPages
   }
 
-  const handleOpenExternal = (url) => {
+  const handleOpenExternal = (url: string) => {
     if (window.electronAPI && window.electronAPI.openExternal) {
       window.electronAPI.openExternal(url)
     } else {
-      // 备用方案
       window.open(url, "_blank")
     }
   }
@@ -117,9 +114,7 @@ const OnlineToolsPage = () => {
 
   return (
     <div className="community-page">
-      {/* 左侧导航栏 */}
       <div className="community-sidebar">
-        {/* 标签切换 */}
         <div className="tab-switcher">
           <button
             className={`tab-button ${activeTab === "community" ? "active" : ""}`}
@@ -135,7 +130,6 @@ const OnlineToolsPage = () => {
           </button>
         </div>
 
-        {/* 网站列表 */}
         <div className="sites-list">
           {currentData.length === 0 ? (
             <div className="no-sites">
@@ -152,7 +146,7 @@ const OnlineToolsPage = () => {
                   src={site.icon || "/placeholder.svg"}
                   alt={site.name}
                   className="site-icon"
-                  onError={(e) => {
+                  onError={(e: any) => {
                     e.target.src =
                       "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiByeD0iOCIgZmlsbD0iIzMzMzMzMyIvPgo8dGV4dCB4PSIyMCIgeT0iMjQiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMCIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+V2ViPC90ZXh0Pgo8L3N2Zz4K"
                   }}
@@ -166,7 +160,6 @@ const OnlineToolsPage = () => {
           )}
         </div>
 
-        {/* 选中网站的操作按钮 */}
         {selectedSite && (
           <div className="site-actions">
             <button
@@ -183,7 +176,6 @@ const OnlineToolsPage = () => {
         )}
       </div>
 
-      {/* 右侧内容区域 */}
       <div className="community-content">
         {selectedSite ? (
           <div className="website-container">
@@ -215,8 +207,8 @@ const OnlineToolsPage = () => {
               src={selectedSite.url}
               className="community-iframe"
               title={selectedSite.name}
-              onLoad={() => console.log("在线网站加载完成")}
-              onError={() => console.error("在线网站加载完成")}
+              onLoad={() => console.log("社区网站加载完成")}
+              onError={() => console.error("社区网站加载失败")}
               allowFullScreen={false}
               loading="eager"
             />
@@ -235,4 +227,4 @@ const OnlineToolsPage = () => {
   )
 }
 
-export default OnlineToolsPage
+export default CommunityPage

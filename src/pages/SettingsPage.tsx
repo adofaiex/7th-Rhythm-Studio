@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import i18n, { 
   t, 
   setLanguage, 
@@ -14,7 +14,6 @@ import { setTheme, getCurrentTheme, getThemeOptions } from "../utils/theme"
 import VersionManager from "../utils/VersionManager"
 import "./SettingsPage.css"
 
-// Material-UI Icons
 import LanguageIcon from '@material-ui/icons/Language'
 import PaletteIcon from '@material-ui/icons/Palette'
 import FolderIcon from '@material-ui/icons/Folder'
@@ -27,58 +26,51 @@ import CodeIcon from '@material-ui/icons/Code'
 import BuildIcon from '@material-ui/icons/Build'
 import PersonIcon from '@material-ui/icons/Person'
 
-const SettingsPage = () => {
-  const [currentLanguage, setCurrentLanguage] = useState(i18n.getCurrentLanguage())
-  const [supportedLanguages, setSupportedLanguages] = useState(getSupportedLanguages())
-  const [language, setLanguageState] = useState(i18n.getCurrentLanguage())
-  const [currentTheme, setCurrentTheme] = useState(getCurrentTheme())
-  const [themeOptions] = useState(getThemeOptions())
-  const [downloadPath, setDownloadPath] = useState("")
-  const [pathLoading, setPathLoading] = useState(false)
-  const [languageLoading, setLanguageLoading] = useState(false)
+const SettingsPage: React.FC = () => {
+  const [currentLanguage, setCurrentLanguage] = useState<string>(i18n.getCurrentLanguage())
+  const [supportedLanguages, setSupportedLanguages] = useState<any[]>(getSupportedLanguages())
+  const [language, setLanguageState] = useState<string>(i18n.getCurrentLanguage())
+  const [currentTheme, setCurrentTheme] = useState<string>(getCurrentTheme())
+  const [themeOptions] = useState<any[]>(getThemeOptions())
+  const [downloadPath, setDownloadPath] = useState<string>("")
+  const [pathLoading, setPathLoading] = useState<boolean>(false)
+  const [languageLoading, setLanguageLoading] = useState<boolean>(false)
 
-  // 监听语言变化
   useEffect(() => {
-    const handleLanguageChange = (event) => {
+    const handleLanguageChange = (event: any) => {
       setLanguageState(event.detail.language)
       setCurrentLanguage(event.detail.language)
     }
-
-    window.addEventListener("languageChanged", handleLanguageChange)
+    window.addEventListener("languageChanged", handleLanguageChange as EventListener)
     return () => {
-      window.removeEventListener("languageChanged", handleLanguageChange)
+      window.removeEventListener("languageChanged", handleLanguageChange as EventListener)
     }
   }, [])
 
-  // 监听主题变化
   useEffect(() => {
-    const handleThemeChange = (event) => {
+    const handleThemeChange = (_event: any) => {
       setCurrentTheme(getCurrentTheme())
     }
-
-    window.addEventListener("themeChanged", handleThemeChange)
+    window.addEventListener("themeChanged", handleThemeChange as EventListener)
     return () => {
-      window.removeEventListener("themeChanged", handleThemeChange)
+      window.removeEventListener("themeChanged", handleThemeChange as EventListener)
     }
   }, [])
 
-  // 获取当前下载路径
   useEffect(() => {
     const loadDownloadPath = async () => {
       try {
         if (window.electronAPI) {
           const path = await window.electronAPI.getDownloadPath()
-          setDownloadPath(path)
+          setDownloadPath(path as string)
         }
       } catch (error) {
         console.error("Failed to load download path:", error)
       }
     }
-
     loadDownloadPath()
   }, [])
 
-  // 刷新语言列表
   const refreshLanguageList = async () => {
     try {
       await refreshExternalLanguages()
@@ -88,7 +80,7 @@ const SettingsPage = () => {
     }
   }
 
-  const handleLanguageChange = async (newLanguage) => {
+  const handleLanguageChangeSelect = async (newLanguage: string) => {
     try {
       await setLanguage(newLanguage)
       setCurrentLanguage(newLanguage)
@@ -98,7 +90,7 @@ const SettingsPage = () => {
     }
   }
 
-  const handleThemeChange = (newTheme) => {
+  const handleThemeChangeSelect = (newTheme: string) => {
     try {
       setTheme(newTheme)
       setCurrentTheme(newTheme)
@@ -111,27 +103,24 @@ const SettingsPage = () => {
   const handleImportLanguage = async () => {
     try {
       setLanguageLoading(true)
-      
       if (window.electronAPI) {
-        // 使用新的electron API
-        const language = await selectAndImportLanguageFile()
-        if (language) {
+        const languageCode = await selectAndImportLanguageFile()
+        if (languageCode) {
           await refreshLanguageList()
-          alert(`${t("messages.success")}: ${language}`)
+          alert(`${t("messages.success")}: ${languageCode}`)
         }
       } else {
-        // 浏览器环境，使用文件选择器
         const input = document.createElement("input")
         input.type = "file"
         input.accept = ".json"
-        input.onchange = async (e) => {
+        input.onchange = async (e: any) => {
           const file = e.target.files[0]
           if (file) {
             try {
-              const language = await i18n.importLanguageFile(file)
+              const languageCode = await i18n.importLanguageFile(file)
               await refreshLanguageList()
-              alert(`${t("messages.success")}: ${language}`)
-            } catch (error) {
+              alert(`${t("messages.success")}: ${languageCode}`)
+            } catch (error: any) {
               console.error("Import failed:", error)
               alert(`${t("messages.error")}: ${error.message}`)
             }
@@ -139,7 +128,7 @@ const SettingsPage = () => {
         }
         input.click()
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Import failed:", error)
       alert(`${t("messages.error")}: ${error.message}`)
     } finally {
@@ -150,25 +139,23 @@ const SettingsPage = () => {
   const handleExportLanguage = () => {
     try {
       exportLanguageFile(currentLanguage)
-    } catch (error) {
+    } catch (error: any) {
       console.error("Export failed:", error)
       alert(`${t("messages.error")}: ${error.message}`)
     }
   }
 
-  const handleDeleteLanguage = async (languageCode) => {
+  const handleDeleteLanguage = async (languageCode: string) => {
     if (!window.electronAPI) {
       alert("此功能仅在桌面应用中可用")
       return
     }
-
-    const language = supportedLanguages.find(lang => lang.code === languageCode)
-    if (!language || language.type !== "external") {
+    const languageItem = supportedLanguages.find(lang => lang.code === languageCode)
+    if (!languageItem || languageItem.type !== "external") {
       alert("只能删除外部语言文件")
       return
     }
-
-    if (confirm(`确定要删除语言文件 "${language.name}" 吗？`)) {
+    if (confirm(`确定要删除语言文件 "${languageItem.name}" 吗？`)) {
       try {
         setLanguageLoading(true)
         const success = await deleteExternalLanguage(languageCode)
@@ -178,7 +165,7 @@ const SettingsPage = () => {
         } else {
           alert("删除失败")
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Delete failed:", error)
         alert(`删除失败: ${error.message}`)
       } finally {
@@ -195,14 +182,14 @@ const SettingsPage = () => {
         if (result.success) {
           const updateResult = await window.electronAPI.setDownloadPath(result.path)
           if (updateResult.success) {
-            setDownloadPath(updateResult.path)
+            setDownloadPath(updateResult.path as string)
             alert(t("settings.pathUpdateSuccess"))
           } else {
             alert(t("settings.pathUpdateFailed") + ": " + updateResult.error)
           }
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Select folder failed:", error)
       alert(t("settings.pathUpdateFailed") + ": " + error.message)
     } finally {
@@ -214,16 +201,15 @@ const SettingsPage = () => {
     try {
       setPathLoading(true)
       if (window.electronAPI) {
-        // 传递空字符串或null来重置为默认路径
         const result = await window.electronAPI.setDownloadPath("")
         if (result.success) {
-          setDownloadPath(result.path)
+          setDownloadPath(result.path as string)
           alert(t("settings.pathUpdateSuccess"))
         } else {
           alert(t("settings.pathUpdateFailed") + ": " + result.error)
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Reset path failed:", error)
       alert(t("settings.pathUpdateFailed") + ": " + error.message)
     } finally {
@@ -249,7 +235,7 @@ const SettingsPage = () => {
             <label>{t("settings.language")}:</label>
             <select
               value={currentLanguage}
-              onChange={(e) => handleLanguageChange(e.target.value)}
+              onChange={(e) => handleLanguageChangeSelect(e.target.value)}
               className="language-select"
               disabled={languageLoading}
             >
@@ -287,7 +273,6 @@ const SettingsPage = () => {
             </div>
           </div>
 
-          {/* 外部语言文件管理 */}
           {window.electronAPI && supportedLanguages.some(lang => lang.type === "external") && (
             <div className="setting-item">
               <label>外部语言文件管理:</label>
@@ -316,7 +301,7 @@ const SettingsPage = () => {
           <h2><PaletteIcon style={{ marginRight: '8px', verticalAlign: 'middle' }} /> {t("settings.theme")}</h2>
           <div className="setting-item">
             <label>{t("settings.theme")}:</label>
-            <select value={currentTheme} onChange={(e) => handleThemeChange(e.target.value)} className="theme-select">
+            <select value={currentTheme} onChange={(e) => handleThemeChangeSelect(e.target.value)} className="theme-select">
               {themeOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {t(option.label)}

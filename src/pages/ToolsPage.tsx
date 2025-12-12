@@ -1,43 +1,78 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import IFrame from "../components/IFrame"
-import ExpandMoreIcon from "@material-ui/icons/ExpandMore"
-import ExpandLessIcon from "@material-ui/icons/ExpandLess"
+import React, { useState, useEffect, useRef } from "react"
+import IFrame, { IFrameControl } from "../components/IFrame"
 import SearchIcon from "@material-ui/icons/Search"
 import ClearIcon from "@material-ui/icons/Clear"
 import i18n, { t } from "../utils/i18n"
 import { marked } from "marked"
-
-
 import "./ToolsPage.css"
 
-const ToolsPage = ({ onStartDownload, downloads }) => {
-  const [tools, setTools] = useState([])
-  const [selectedTool, setSelectedTool] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [localFiles, setLocalFiles] = useState([])
-  const [language, setLanguage] = useState(i18n.getCurrentLanguage())
-  const [rightPanelContent, setRightPanelContent] = useState("documentation") // "documentation" | "description" | "changelog"
-  const [filter, setFilter] = useState("all") // 'all', 'downloaded', 'not-downloaded'
-  const [searchTerm, setSearchTerm] = useState("")
-  const [toolVersions, setToolVersions] = useState({}) // 存储工具版本信息
-  const iframeRef = useRef(null)
+type Author = {
+  name: string
+  avatar?: string
+  link?: string
+}
 
-  // 监听语言变化
+type Tool = {
+  id: number | string
+  name: string
+  description?: string
+  version: string
+  downloads: number
+  releaseDate: string
+  icon?: string
+  downloadUrl?: string
+  documentation?: string
+  changelog?: string
+  author: Author
+}
+
+type LocalFileInfo = {
+  toolId: string
+  path?: string
+}
+
+type ToolVersionInfo = {
+  version: string
+}
+
+type DownloadStatus = "downloading" | "paused" | "completed" | "error"
+
+type DownloadItem = {
+  tool: Tool
+  status: DownloadStatus
+  progress?: number
+}
+
+type Props = {
+  onStartDownload?: (tool: Tool & { toolName: string; toolVersion: string }) => string
+  downloads?: DownloadItem[]
+}
+
+const ToolsPage: React.FC<Props> = ({ onStartDownload, downloads }) => {
+  const [tools, setTools] = useState<Tool[]>([])
+  const [selectedTool, setSelectedTool] = useState<Tool | null>(null)
+  const [loading, setLoading] = useState<boolean>(true)
+  const [error, setError] = useState<string | null>(null)
+  const [localFiles, setLocalFiles] = useState<LocalFileInfo[]>([])
+  const [language, setLanguage] = useState<string>(i18n.getCurrentLanguage())
+  const [rightPanelContent, setRightPanelContent] = useState<string>("documentation")
+  const [filter, setFilter] = useState<string>("all")
+  const [searchTerm, setSearchTerm] = useState<string>("")
+  const [toolVersions, setToolVersions] = useState<Record<string, ToolVersionInfo>>({})
+  const iframeRef = useRef<IFrameControl | null>(null)
+
   useEffect(() => {
-    const handleLanguageChange = (event) => {
+    const handleLanguageChange = (event: CustomEvent<{ language: string }>) => {
       setLanguage(event.detail.language)
     }
-
-    window.addEventListener("languageChanged", handleLanguageChange)
+    window.addEventListener("languageChanged", handleLanguageChange as EventListener)
     return () => {
-      window.removeEventListener("languageChanged", handleLanguageChange)
+      window.removeEventListener("languageChanged", handleLanguageChange as EventListener)
     }
   }, [])
 
-  // 获取工具列表
   useEffect(() => {
     const fetchTools = async () => {
       try {
@@ -47,92 +82,75 @@ const ToolsPage = ({ onStartDownload, downloads }) => {
           throw new Error(t("tools.loadFailed"))
         }
         const result = await response.json()
-        
-        // 检查API响应是否成功
         if (!result.success) {
           throw new Error(result.message || t("tools.loadFailed"))
         }
-        
-        const tools = result.data?.tools || []
-        setTools(tools)
-        
-        // 默认选中第一个工具
-        if (tools.length > 0) {
-          setSelectedTool(tools[0])
+        const toolsData: Tool[] = result.data?.tools || []
+        setTools(toolsData)
+        if (toolsData.length > 0) {
+          setSelectedTool(toolsData[0])
         }
       } catch (err) {
-        setError(err.message)
+        const msg = (err as Error).message || t("tools.loadFailed")
+        setError(msg)
         console.error("获取工具列表失败:", err)
       } finally {
         setLoading(false)
       }
     }
-
     fetchTools()
   }, [language])
 
-  // 获取本地文件列表
   useEffect(() => {
     const fetchLocalFiles = async () => {
       if (window.electronAPI) {
         try {
           const files = await window.electronAPI.getLocalFiles()
-          setLocalFiles(files)
+          setLocalFiles(files as LocalFileInfo[])
         } catch (error) {
           console.error("获取本地文件失败:", error)
         }
       }
     }
-
     fetchLocalFiles()
-  }, [downloads]) // 当下载状态变化时重新获取
+  }, [downloads])
 
-  // 获取工具版本信息
   useEffect(() => {
     const fetchToolVersions = async () => {
       if (window.electronAPI) {
         try {
           const versions = await window.electronAPI.getAllToolVersions()
-          setToolVersions(versions || {})
+          setToolVersions((versions || {}) as Record<string, ToolVersionInfo>)
         } catch (error) {
           console.error("获取工具版本信息失败:", error)
         }
       }
     }
-
     fetchToolVersions()
-  }, [localFiles]) // 当本地文件列表变化时重新获取版本信息
+  }, [localFiles])
 
-  const handleToolSelect = (tool) => {
+  const handleToolSelect = (tool: Tool) => {
     setSelectedTool(tool)
-    setRightPanelContent("documentation") // 重置为默认显示文档
+    setRightPanelContent("documentation")
   }
 
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString(language)
   }
 
-  // 检查工具是否已下载 - 使用工具ID
-  const isToolDownloaded = (tool) => {
+  const isToolDownloaded = (tool: Tool) => {
     return localFiles.some((file) => file.toolId === tool.id.toString())
   }
 
-  // 检查工具是否需要更新
-  const isToolNeedUpdate = (tool) => {
+  const isToolNeedUpdate = (tool: Tool) => {
     const toolId = tool.id.toString()
     const localVersionInfo = toolVersions[toolId]
-    
-    // 如果没有本地版本信息，或者工具未下载，不需要更新
     if (!localVersionInfo || !isToolDownloaded(tool)) {
       return false
     }
-    
-    // 比较版本号
     try {
       const remoteVersion = tool.version
       const localVersion = localVersionInfo.version
-      
-      // 如果远程版本更新，则需要更新
       return compareVersions(remoteVersion, localVersion) > 0
     } catch (error) {
       console.error("版本比较失败:", error)
@@ -140,8 +158,7 @@ const ToolsPage = ({ onStartDownload, downloads }) => {
     }
   }
 
-  // 简单的版本比较函数（前端版本）
-  const compareVersions = (version1, version2) => {
+  const compareVersions = (version1: string, version2: string) => {
     const v1 = version1.split('.').map(Number)
     const v2 = version2.split('.').map(Number)
     for (let i = 0; i < Math.max(v1.length, v2.length); i++) {
@@ -153,8 +170,7 @@ const ToolsPage = ({ onStartDownload, downloads }) => {
     return 0
   }
 
-  // 获取工具状态 - 返回 'not-downloaded', 'downloaded', 'need-update'
-  const getToolStatus = (tool) => {
+  const getToolStatus = (tool: Tool) => {
     if (!isToolDownloaded(tool)) {
       return 'not-downloaded'
     } else if (isToolNeedUpdate(tool)) {
@@ -164,18 +180,13 @@ const ToolsPage = ({ onStartDownload, downloads }) => {
     }
   }
 
-  // 筛选和搜索工具
-  const getFilteredTools = () => {
-    let filteredTools = tools
-
-    // 应用筛选
+  const getFilteredTools = (): Tool[] => {
+    let filteredTools: Tool[] = tools
     if (filter === "downloaded") {
       filteredTools = filteredTools.filter((tool) => isToolDownloaded(tool))
     } else if (filter === "not-downloaded") {
       filteredTools = filteredTools.filter((tool) => !isToolDownloaded(tool))
     }
-
-    // 应用搜索
     if (searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase()
       filteredTools = filteredTools.filter(
@@ -185,27 +196,22 @@ const ToolsPage = ({ onStartDownload, downloads }) => {
           tool.author.name.toLowerCase().includes(searchLower),
       )
     }
-
     return filteredTools
   }
 
-  // 清空搜索
   const clearSearch = () => {
     setSearchTerm("")
   }
 
-  // 渲染Markdown文本为HTML
-  const renderMarkdown = (text) => {
+  const renderMarkdown = (text: string) => {
     return marked.parse(text)
   }
 
-  // 处理右侧面板内容切换
-  const handleRightPanelContent = (contentType) => {
+  const handleRightPanelContent = (contentType: string) => {
     setRightPanelContent(contentType)
   }
 
-  // 更新工具下载量
-  const updateDownloadCount = async (toolId) => {
+  const updateDownloadCount = async (toolId: number | string) => {
     try {
       const response = await fetch("https://7th.rhythmdoctor.top/api/tools/update_downloadsnum.php", {
         method: "POST",
@@ -216,33 +222,24 @@ const ToolsPage = ({ onStartDownload, downloads }) => {
           tool_id: toolId.toString()
         })
       })
-
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
-
       const result = await response.json()
-      
       if (result.success) {
-        console.log("下载量更新成功:", result.data)
-        
-        // 更新本地工具列表中的下载量
-        setTools(prevTools => 
-          prevTools.map(tool => 
-            tool.id === toolId 
+        setTools(prevTools =>
+          prevTools.map(tool =>
+            tool.id === toolId
               ? { ...tool, downloads: result.data.current_downloads }
               : tool
           )
         )
-        
-        // 如果当前选中的工具是被更新的工具，也更新选中的工具
         if (selectedTool && selectedTool.id === toolId) {
-          setSelectedTool(prevTool => ({
+          setSelectedTool((prevTool: any) => ({
             ...prevTool,
             downloads: result.data.current_downloads
           }))
         }
-        
         return result.data.current_downloads
       } else {
         console.error("更新下载量失败:", result.message)
@@ -254,37 +251,29 @@ const ToolsPage = ({ onStartDownload, downloads }) => {
     }
   }
 
-  const handleDownload = async (tool) => {
+  const handleDownload = async (tool: Tool) => {
     if (!tool.downloadUrl) {
       alert(t("messages.invalidUrl"))
       return
     }
-
     if (!onStartDownload) {
       alert(t("messages.downloadFailed"))
       return
     }
-
-    // 检查是否已经在下载
     const existingDownload = downloads?.find(
       (d) => d.tool.id === tool.id && (d.status === "downloading" || d.status === "paused"),
     )
-
     if (existingDownload) {
       alert(t("download.downloading"))
       return
     }
-
-    // 开始下载，传递工具名称和版本信息
-    const downloadData = {
+    const downloadData: Tool & { toolName: string; toolVersion: string } = {
       ...tool,
       toolName: tool.name,
       toolVersion: tool.version
     }
     const downloadId = onStartDownload(downloadData)
     console.log("开始下载工具:", tool.name, "版本:", tool.version, "下载ID:", downloadId)
-    
-    // 更新下载量（异步执行，不阻塞下载）
     updateDownloadCount(tool.id).then((newDownloadCount) => {
       if (newDownloadCount !== null) {
         console.log(`工具 ${tool.name} 下载量已更新为: ${newDownloadCount}`)
@@ -294,45 +283,33 @@ const ToolsPage = ({ onStartDownload, downloads }) => {
     })
   }
 
-  // 处理工具更新
-  const handleUpdate = async (tool) => {
+  const handleUpdate = async (tool: Tool) => {
     if (!tool.downloadUrl) {
       alert(t("messages.invalidUrl"))
       return
     }
-
     if (!onStartDownload) {
       alert(t("messages.downloadFailed"))
       return
     }
-
-    // 确认更新操作
     const confirmMessage = `确定要更新 ${tool.name} 吗？这将删除旧版本并下载最新版本。`
     if (!confirm(confirmMessage)) {
       return
     }
-
     try {
-      // 删除旧的工具文件
       const deleteSuccess = await window.electronAPI.deleteLocalFile(tool.id.toString())
       if (!deleteSuccess) {
         console.warn("删除旧版本失败，继续下载新版本")
       }
-
-      // 更新本地文件列表
       const updatedFiles = await window.electronAPI.getLocalFiles()
-      setLocalFiles(updatedFiles)
-
-      // 开始下载新版本，传递工具名称和版本信息
-      const downloadData = {
+      setLocalFiles(updatedFiles as LocalFileInfo[])
+      const downloadData: Tool & { toolName: string; toolVersion: string } = {
         ...tool,
         toolName: tool.name,
         toolVersion: tool.version
       }
       const downloadId = onStartDownload(downloadData)
       console.log("开始更新工具:", tool.name, "至版本:", tool.version, "下载ID:", downloadId)
-
-      // 更新下载量（异步执行，不阻塞下载）
       updateDownloadCount(tool.id).then((newDownloadCount) => {
         if (newDownloadCount !== null) {
           console.log(`工具 ${tool.name} 下载量已更新为: ${newDownloadCount}`)
@@ -340,23 +317,21 @@ const ToolsPage = ({ onStartDownload, downloads }) => {
       }).catch((error) => {
         console.error(`更新工具 ${tool.name} 下载量时出错:`, error)
       })
-
     } catch (error) {
       console.error("更新工具失败:", error)
-      alert("更新失败: " + error.message)
+      const msg = (error as Error).message || ""
+      alert("更新失败: " + msg)
     }
   }
 
-  // 打开本地文件 - 使用工具ID
-  const handleOpenLocal = async (tool) => {
+  const handleOpenLocal = async (tool: Tool) => {
     if (window.electronAPI) {
       try {
         const success = await window.electronAPI.openLocalFile(tool.id.toString())
         if (!success) {
           alert(t("tools.openFailed"))
-          // 刷新本地文件列表
           const files = await window.electronAPI.getLocalFiles()
-          setLocalFiles(files)
+          setLocalFiles(files as LocalFileInfo[])
         }
       } catch (error) {
         console.error("打开文件失败:", error)
@@ -365,20 +340,17 @@ const ToolsPage = ({ onStartDownload, downloads }) => {
     }
   }
 
-  // 删除本地文件 - 使用工具ID
-  const handleDeleteLocal = async (tool) => {
+  const handleDeleteLocal = async (tool: Tool) => {
     if (!confirm(t("tools.confirmDelete"))) {
       return
     }
-
     if (window.electronAPI) {
       try {
         const success = await window.electronAPI.deleteLocalFile(tool.id.toString())
         if (success) {
           alert(t("tools.deleteSuccess"))
-          // 刷新本地文件列表
           const files = await window.electronAPI.getLocalFiles()
-          setLocalFiles(files)
+          setLocalFiles(files as LocalFileInfo[])
         } else {
           alert(t("tools.deleteFailed"))
         }
@@ -389,13 +361,10 @@ const ToolsPage = ({ onStartDownload, downloads }) => {
     }
   }
 
-  // 获取下载按钮样式类
-  const getDownloadButtonClass = (tool) => {
+  const getDownloadButtonClass = (tool: Tool) => {
     if (!downloads || !tool) return ""
-
     const download = downloads.find((d) => d.tool.id === tool.id)
     if (!download) return ""
-
     switch (download.status) {
       case "downloading":
         return "downloading"
@@ -410,13 +379,10 @@ const ToolsPage = ({ onStartDownload, downloads }) => {
     }
   }
 
-  // 获取下载按钮文本
-  const getDownloadButtonText = (tool) => {
+  const getDownloadButtonText = (tool: Tool) => {
     if (!downloads || !tool) return t("tools.download")
-
     const download = downloads.find((d) => d.tool.id === tool.id)
     if (!download) return t("tools.download")
-
     switch (download.status) {
       case "downloading":
         return `${t("download.downloading")} ${download.progress}%`
@@ -431,35 +397,26 @@ const ToolsPage = ({ onStartDownload, downloads }) => {
     }
   }
 
-  // 检查是否正在下载
-  const isDownloading = (tool) => {
+  const isDownloading = (tool: Tool) => {
     if (!downloads || !tool) return false
-
     const download = downloads.find((d) => d.tool.id === tool.id)
-    return download && (download.status === "downloading" || download.status === "paused")
+    return Boolean(download && (download.status === "downloading" || download.status === "paused"))
   }
 
-  // 判断downloadUrl是否是文件下载链接还是网页链接
-  const isDownloadableFile = (url) => {
+  const isDownloadableFile = (url: string) => {
     if (!url) return false
-    
-    // 常见的可下载文件扩展名
     const downloadableExtensions = ['.zip', '.rar', '.7z', '.exe', '.msi', '.dmg', '.pkg', '.deb', '.rpm', '.apk', '.jar', '.tar', '.gz', '.bz2', '.xz']
-    
-    // 检查URL是否以这些扩展名结尾
     const urlLower = url.toLowerCase()
     return downloadableExtensions.some(ext => urlLower.endsWith(ext))
   }
 
-  // 打开外部链接
-  const handleOpenExternal = async (url, tool = null) => {
+  const handleOpenExternal = async (url: string, tool: Tool | null = null) => {
     if (window.electronAPI) {
       try {
         const success = await window.electronAPI.openExternal(url)
         if (!success) {
           alert(t("messages.error"))
         } else if (tool) {
-          // 如果成功打开外部链接且提供了工具信息，更新下载量
           updateDownloadCount(tool.id).then((newDownloadCount) => {
             if (newDownloadCount !== null) {
               console.log(`工具 ${tool.name} 下载量已更新为: ${newDownloadCount}`)
@@ -475,7 +432,6 @@ const ToolsPage = ({ onStartDownload, downloads }) => {
     }
   }
 
-  // 获取筛选后的工具列表
   const filteredTools = getFilteredTools()
 
   if (loading) {
@@ -504,7 +460,6 @@ const ToolsPage = ({ onStartDownload, downloads }) => {
   return (
     <div className="tools-page">
       <div className="tools-left-panel">
-        {/* 工具详情区域 */}
         <div className="tool-details">
           {selectedTool ? (
             <>
@@ -513,7 +468,7 @@ const ToolsPage = ({ onStartDownload, downloads }) => {
                   src={selectedTool.icon || "/placeholder.svg"}
                   alt={selectedTool.name}
                   className="tool-icon"
-                  onError={(e) => {
+                  onError={(e: any) => {
                     e.target.src =
                       "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iOCIgZmlsbD0iIzMzMzMzMyIvPgo8dGV4dCB4PSIzMiIgeT0iMzgiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+VG9vbDwvdGV4dD4KPHN2Zz4K"
                   }}
@@ -535,7 +490,7 @@ const ToolsPage = ({ onStartDownload, downloads }) => {
                   src={selectedTool.author.avatar || "/placeholder.svg"}
                   alt={selectedTool.author.name}
                   className="author-avatar"
-                  onError={(e) => {
+                  onError={(e: any) => {
                     e.target.src =
                       "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTYiIGZpbGw9IiM2NjY2NjYiLz4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxMiIgcj0iNSIgZmlsbD0iI2ZmZiIvPgo8cGF0aCBkPSJNNiAyNmMwLTUuNSA0LjUtMTAgMTAtMTBzMTAgNC41IDEwIDEwIiBmaWxsPSIjZmZmIi8+Cjwvc3ZnPgo="
                   }}
@@ -569,7 +524,6 @@ const ToolsPage = ({ onStartDownload, downloads }) => {
                 </div>
               </div>
 
-              {/* 工具简介区域 */}
               {selectedTool.description && (
                 <div className="tool-brief-description">
                   <div className="brief-description-content">
@@ -582,9 +536,7 @@ const ToolsPage = ({ onStartDownload, downloads }) => {
                 <div className="download-actions">
                   {(() => {
                     const toolStatus = getToolStatus(selectedTool)
-                    
                     if (toolStatus === 'need-update') {
-                      // 需要更新：显示更新按钮和管理按钮
                       return (
                         <div className="update-actions">
                           <button
@@ -605,7 +557,6 @@ const ToolsPage = ({ onStartDownload, downloads }) => {
                         </div>
                       )
                     } else if (toolStatus === 'downloaded') {
-                      // 已下载且最新：显示打开和删除按钮
                       return (
                         <div className="local-actions">
                           <button className="btn-open" onClick={() => handleOpenLocal(selectedTool)}>
@@ -617,7 +568,6 @@ const ToolsPage = ({ onStartDownload, downloads }) => {
                         </div>
                       )
                     } else {
-                      // 未下载：显示下载或外部链接按钮
                       if (isDownloadableFile(selectedTool.downloadUrl)) {
                         return (
                           <button
@@ -651,7 +601,6 @@ const ToolsPage = ({ onStartDownload, downloads }) => {
           )}
         </div>
 
-        {/* 工具列表区域 */}
         <div className="tools-list">
           <div className="tools-list-header">
             <div className="tools-list-title">
@@ -721,7 +670,7 @@ const ToolsPage = ({ onStartDownload, downloads }) => {
                     src={tool.icon || "/placeholder.svg"}
                     alt={tool.name}
                     className="tool-item-icon"
-                    onError={(e) => {
+                    onError={(e: any) => {
                       e.target.src =
                         "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiByeD0iNCIgZmlsbD0iIzMzMzMzMyIvPgo8dGV4dCB4PSIyMCIgeT0iMjQiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMCIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+VG9vbDwvdGV4dD4KPHN2Zz4K"
                     }}
@@ -752,12 +701,10 @@ const ToolsPage = ({ onStartDownload, downloads }) => {
         </div>
       </div>
 
-      {/* 右侧面板区域 */}
       <div className="tools-right-panel">
         <div className="documentation-container">
           {selectedTool ? (
             rightPanelContent === "description" && selectedTool.description ? (
-              // 显示工具描述
               <div className="changelog-display">
                 <div className="changelog-header">
                   <h3>
@@ -772,7 +719,6 @@ const ToolsPage = ({ onStartDownload, downloads }) => {
                 />
               </div>
             ) : rightPanelContent === "changelog" && selectedTool.changelog ? (
-              // 显示更新日志
               <div className="changelog-display">
                 <div className="changelog-header">
                   <h3>
@@ -787,7 +733,6 @@ const ToolsPage = ({ onStartDownload, downloads }) => {
                 />
               </div>
             ) : selectedTool.documentation ? (
-              // 显示文档
               <IFrame
                 ref={iframeRef}
                 src={selectedTool.documentation}

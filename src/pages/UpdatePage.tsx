@@ -2,31 +2,23 @@ import React, { useState, useEffect } from 'react';
 import VersionManager from '../utils/VersionManager';
 import './UpdatePage.css';
 
-// 确定平台
 const getPlatform = () => {
   if (window.navigator.platform.toLowerCase().includes('win')) {
     return 'windows';
   } else if (window.navigator.platform.toLowerCase().includes('mac')) {
     return 'macos';
   }
-  return 'windows'; // 默认
+  return 'windows';
 };
 
-const UpdatePage = () => {
-  const [status, setStatus] = useState('checking'); // checking, app-update, completed, error
-  const [message, setMessage] = useState('正在检查更新...');
-  const [updateInfo, setUpdateInfo] = useState(null);
-  const [error, setError] = useState(null);
-  const [isForceUpdate, setIsForceUpdate] = useState(false);
+const UpdatePage: React.FC = () => {
+  const [status, setStatus] = useState<string>('checking');
+  const [message, setMessage] = useState<string>('正在检查更新...');
+  const [updateInfo, setUpdateInfo] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isForceUpdate, setIsForceUpdate] = useState<boolean>(false);
 
   useEffect(() => {
-    console.log('UpdatePage mounted');
-    console.log('window.electronAPI available:', !!window.electronAPI);
-    console.log('VersionManager:', {
-      appVersion: VersionManager.appVersion
-    });
-    
-    // 延迟检查，确保API完全加载
     setTimeout(() => {
       checkForUpdates();
     }, 100);
@@ -36,48 +28,31 @@ const UpdatePage = () => {
     try {
       setStatus('checking');
       setMessage('正在检查更新...');
-      
       if (!window.electronAPI) {
         throw new Error('Electron API 不可用');
       }
-
-      // 请求更新信息
       const updateData = await window.electronAPI.checkUpdate();
       setUpdateInfo(updateData);
-
       const platform = getPlatform();
       const needsAppUpdate = VersionManager.needsAppUpdate(updateData.version);
       const forceUpdate = updateData.min_version ? VersionManager.needsForceUpdate(updateData.min_version) : false;
-
-      console.log('Version check:', {
-        current: { app: VersionManager.appVersion },
-        remote: { app: updateData.version, minVersion: updateData.min_version },
-        needsAppUpdate,
-        forceUpdate
-      });
-
       if (needsAppUpdate) {
-        // 需要软件更新
         setStatus('app-update');
         setIsForceUpdate(forceUpdate);
-        
         if (forceUpdate) {
           setMessage(`发现新版本 ${updateData.version}（强制更新）`);
         } else {
           setMessage(`发现新版本 ${updateData.version}`);
         }
       } else {
-        // 无更新
         setStatus('completed');
         setMessage('已是最新版本');
         setTimeout(() => finishUpdate(), 1500);
       }
-    } catch (error) {
-      console.error('Check update error:', error);
+    } catch (error: any) {
       setStatus('error');
       setError(error.message || '未知错误');
       setMessage(`检查更新失败: ${error.message || '未知错误'}`);
-      // 即使检查失败也要启动主应用
       setTimeout(() => finishUpdate(), 5000);
     }
   };
@@ -86,15 +61,13 @@ const UpdatePage = () => {
     try {
       const platform = getPlatform();
       const updateUrl = updateInfo.update[platform];
-      
       if (updateUrl) {
         setMessage('正在打开下载页面...');
         await window.electronAPI.handleAppUpdate(updateUrl);
       } else {
         throw new Error('找不到对应平台的更新包');
       }
-    } catch (error) {
-      console.error('Handle app update error:', error);
+    } catch (error: any) {
       setStatus('error');
       setError(error.message);
       setMessage('打开下载页面失败');
@@ -105,8 +78,6 @@ const UpdatePage = () => {
     try {
       await window.electronAPI.finishUpdate();
     } catch (error) {
-      console.error('Finish update error:', error);
-      // 强制关闭更新窗口
       if (window.electronAPI) {
         window.electronAPI.windowControl('close');
       }
@@ -125,7 +96,6 @@ const UpdatePage = () => {
             <p className="update-message">{message}</p>
           </div>
         );
-
       case 'app-update':
         return (
           <div className="update-content">
@@ -152,7 +122,6 @@ const UpdatePage = () => {
             </div>
           </div>
         );
-
       case 'completed':
         return (
           <div className="update-content">
@@ -161,7 +130,6 @@ const UpdatePage = () => {
             <p className="update-message">{message}</p>
           </div>
         );
-
       case 'error':
         return (
           <div className="update-content">
@@ -179,7 +147,6 @@ const UpdatePage = () => {
             </div>
           </div>
         );
-
       default:
         return null;
     }

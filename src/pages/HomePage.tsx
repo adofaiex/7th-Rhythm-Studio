@@ -1,3 +1,5 @@
+"use client"
+
 import React, { useState, useEffect } from 'react';
 import i18n, { t } from '../utils/i18n';
 import VersionManager from '../utils/VersionManager';
@@ -8,21 +10,23 @@ import SettingsIcon from '@material-ui/icons/Settings';
 import DeveloperModeIcon from '@material-ui/icons/DeveloperMode';
 import './HomePage.css';
 
-const HomePage = ({ onNavigate }) => {
-  const [currentTime, setCurrentTime] = useState(new Date());
-  const [language, setLanguage] = useState(i18n.getCurrentLanguage());
-  const [updateLogs, setUpdateLogs] = useState([]);
-  const [logsLoading, setLogsLoading] = useState(true);
+type Props = {
+  onNavigate?: (actionId: string) => void
+}
+
+const HomePage: React.FC<Props> = ({ onNavigate }) => {
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
+  const [language, setLanguage] = useState<string>(i18n.getCurrentLanguage());
+  const [updateLogs, setUpdateLogs] = useState<any[]>([]);
+  const [logsLoading, setLogsLoading] = useState<boolean>(true);
 
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
-
     return () => clearInterval(timer);
   }, []);
 
-  // 获取更新日志
   useEffect(() => {
     const fetchUpdateLogs = async () => {
       try {
@@ -30,7 +34,7 @@ const HomePage = ({ onNavigate }) => {
         let response;
         if (window.electronAPI) {
           response = await window.electronAPI.fetch("https://7th.rhythmdoctor.top/api/get_updatelog.php");
-          const data = JSON.parse(response);
+          const data = JSON.parse(response as string);
           if (data.success && data.data && data.data.updates) {
             setUpdateLogs(data.data.updates);
           }
@@ -41,23 +45,20 @@ const HomePage = ({ onNavigate }) => {
         setLogsLoading(false);
       }
     };
-
     fetchUpdateLogs();
   }, []);
 
-  // 监听语言变化
   useEffect(() => {
-    const handleLanguageChange = (event) => {
+    const handleLanguageChange = (event: any) => {
       setLanguage(event.detail.language);
     };
-
-    window.addEventListener("languageChanged", handleLanguageChange);
+    window.addEventListener("languageChanged", handleLanguageChange as EventListener);
     return () => {
-      window.removeEventListener("languageChanged", handleLanguageChange);
+      window.removeEventListener("languageChanged", handleLanguageChange as EventListener);
     };
   }, []);
 
-  const formatTime = (date) => {
+  const formatTime = (date: Date) => {
     return date.toLocaleString(language, {
       year: 'numeric',
       month: '2-digit',
@@ -100,7 +101,7 @@ const HomePage = ({ onNavigate }) => {
     }
   ];
 
-  const handleQuickAction = (actionId) => {
+  const handleQuickAction = (actionId: string) => {
     if (onNavigate) {
       onNavigate(actionId);
     }
@@ -109,7 +110,6 @@ const HomePage = ({ onNavigate }) => {
   return (
     <div className="homepage-container">
       <div className="homepage-content">
-        {/* 欢迎区域 */}
         <div className="welcome-section">
           <div className="app-logo">
             <div className="logo-icon">
@@ -127,9 +127,7 @@ const HomePage = ({ onNavigate }) => {
           </div>
         </div>
 
-        {/* 主要内容区域 */}
         <div className="main-sections">
-          {/* 快速操作区域 */}
           <div className="quick-actions-section">
             <h2 className="section-title">{t('home.quickStart') || '快速开始'}</h2>
             <div className="quick-actions-grid">
@@ -138,7 +136,7 @@ const HomePage = ({ onNavigate }) => {
                   key={action.id}
                   className="quick-action-card"
                   onClick={() => handleQuickAction(action.id)}
-                  style={{ '--card-color': action.color }}
+                  style={{ '--card-color': action.color } as React.CSSProperties}
                 >
                   <div className="card-icon">
                     {action.icon}
@@ -153,7 +151,6 @@ const HomePage = ({ onNavigate }) => {
             </div>
           </div>
 
-          {/* 更新日志区域 */}
           <div className="update-logs-section">
             <h2 className="section-title">{t('home.updateLogs') || '更新日志'}</h2>
             <div className="update-logs-container">
@@ -180,7 +177,6 @@ const HomePage = ({ onNavigate }) => {
           </div>
         </div>
 
-        {/* 底部信息 */}
         <div className="footer-section">
           <p className="footer-text">
             {t('home.developedBy') || '由 lizi & Xbodw 开发维护'}
