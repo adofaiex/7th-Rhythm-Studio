@@ -10,7 +10,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 )
 
 if (window.ipcRenderer) {
-  window.ipcRenderer.on('main-process-message', (_event: any, message: unknown) => {
+  window.ipcRenderer.on('main-process-message', (_event: unknown, message: unknown) => {
     console.log(message)
   })
 }

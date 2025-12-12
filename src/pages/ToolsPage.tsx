@@ -1,7 +1,14 @@
 "use client"
 
 import React, { useState, useEffect, useRef } from "react"
-import IFrame, { IFrameControl } from "../components/IFrame"
+import IFrame from "../components/IFrame"
+type IFrameControl = {
+  reload: () => void
+  getCurrentURL: () => string
+  getContentWindow: () => Window | null
+  getContentDocument: () => Document | null
+  iframe: HTMLIFrameElement | null
+}
 import SearchIcon from "@material-ui/icons/Search"
 import ClearIcon from "@material-ui/icons/Clear"
 import i18n, { t } from "../utils/i18n"
@@ -192,7 +199,7 @@ const ToolsPage: React.FC<Props> = ({ onStartDownload, downloads }) => {
       filteredTools = filteredTools.filter(
         (tool) =>
           tool.name.toLowerCase().includes(searchLower) ||
-          tool.description.toLowerCase().includes(searchLower) ||
+          (tool.description ?? "").toLowerCase().includes(searchLower) ||
           tool.author.name.toLowerCase().includes(searchLower),
       )
     }
@@ -235,10 +242,7 @@ const ToolsPage: React.FC<Props> = ({ onStartDownload, downloads }) => {
           )
         )
         if (selectedTool && selectedTool.id === toolId) {
-          setSelectedTool((prevTool: any) => ({
-            ...prevTool,
-            downloads: result.data.current_downloads
-          }))
+          setSelectedTool((prevTool) => prevTool ? { ...prevTool, downloads: result.data.current_downloads } : prevTool)
         }
         return result.data.current_downloads
       } else {
@@ -286,6 +290,10 @@ const ToolsPage: React.FC<Props> = ({ onStartDownload, downloads }) => {
   const handleUpdate = async (tool: Tool) => {
     if (!tool.downloadUrl) {
       alert(t("messages.invalidUrl"))
+      return
+    }
+    if (!window.electronAPI) {
+      alert(t("messages.error"))
       return
     }
     if (!onStartDownload) {
@@ -403,7 +411,7 @@ const ToolsPage: React.FC<Props> = ({ onStartDownload, downloads }) => {
     return Boolean(download && (download.status === "downloading" || download.status === "paused"))
   }
 
-  const isDownloadableFile = (url: string) => {
+  const isDownloadableFile = (url: string | undefined) => {
     if (!url) return false
     const downloadableExtensions = ['.zip', '.rar', '.7z', '.exe', '.msi', '.dmg', '.pkg', '.deb', '.rpm', '.apk', '.jar', '.tar', '.gz', '.bz2', '.xz']
     const urlLower = url.toLowerCase()
@@ -468,8 +476,8 @@ const ToolsPage: React.FC<Props> = ({ onStartDownload, downloads }) => {
                   src={selectedTool.icon || "/placeholder.svg"}
                   alt={selectedTool.name}
                   className="tool-icon"
-                  onError={(e: any) => {
-                    e.target.src =
+                  onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                    e.currentTarget.src =
                       "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iOCIgZmlsbD0iIzMzMzMzMyIvPgo8dGV4dCB4PSIzMiIgeT0iMzgiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+VG9vbDwvdGV4dD4KPHN2Zz4K"
                   }}
                 />
@@ -490,13 +498,13 @@ const ToolsPage: React.FC<Props> = ({ onStartDownload, downloads }) => {
                   src={selectedTool.author.avatar || "/placeholder.svg"}
                   alt={selectedTool.author.name}
                   className="author-avatar"
-                  onError={(e: any) => {
-                    e.target.src =
+                  onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                    e.currentTarget.src =
                       "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTYiIGZpbGw9IiM2NjY2NjYiLz4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxMiIgcj0iNSIgZmlsbD0iI2ZmZiIvPgo8cGF0aCBkPSJNNiAyNmMwLTUuNSA0LjUtMTAgMTAtMTBzMTAgNC41IDEwIDEwIiBmaWxsPSIjZmZmIi8+Cjwvc3ZnPgo="
                   }}
                 />
                 <a 
-                  href={selectedTool.author.link} 
+                  href={selectedTool.author.link || "#"} 
                   target="_blank" 
                   rel="noopener noreferrer" 
                   className="author-name-link"
@@ -582,7 +590,10 @@ const ToolsPage: React.FC<Props> = ({ onStartDownload, downloads }) => {
                         return (
                           <button
                             className="btn-external"
-                            onClick={() => handleOpenExternal(selectedTool.downloadUrl, selectedTool)}
+                            onClick={() => {
+                              const url = selectedTool.downloadUrl as string
+                              handleOpenExternal(url, selectedTool)
+                            }}
                           >
                             {t("tools.openInBrowser")}
                           </button>
@@ -666,15 +677,15 @@ const ToolsPage: React.FC<Props> = ({ onStartDownload, downloads }) => {
                   }`}
                   onClick={() => handleToolSelect(tool)}
                 >
-                  <img
-                    src={tool.icon || "/placeholder.svg"}
-                    alt={tool.name}
-                    className="tool-item-icon"
-                    onError={(e: any) => {
-                      e.target.src =
-                        "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiByeD0iNCIgZmlsbD0iIzMzMzMzMyIvPgo8dGV4dCB4PSIyMCIgeT0iMjQiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMCIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+VG9vbDwvdGV4dD4KPHN2Zz4K"
-                    }}
-                  />
+                <img
+                  src={tool.icon || "/placeholder.svg"}
+                  alt={tool.name}
+                  className="tool-item-icon"
+                  onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                    e.currentTarget.src =
+                      "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiByeD0iNCIgZmlsbD0iIzMzMzMzMyIvPgo8dGV4dCB4PSIyMCIgeT0iMjQiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMCIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+VG9vbDwvdGV4dD4KPHN2Zz4K"
+                  }}
+                />
                   <div className="tool-item-info">
                     <h4>{tool.name}</h4>
                     <p>{tool.description}</p>
@@ -714,7 +725,7 @@ const ToolsPage: React.FC<Props> = ({ onStartDownload, downloads }) => {
                 <div
                   className="changelog-content"
                   dangerouslySetInnerHTML={{
-                    __html: renderMarkdown(selectedTool.description),
+                    __html: renderMarkdown(selectedTool.description || ""),
                   }}
                 />
               </div>
@@ -728,7 +739,7 @@ const ToolsPage: React.FC<Props> = ({ onStartDownload, downloads }) => {
                 <div
                   className="changelog-content"
                   dangerouslySetInnerHTML={{
-                    __html: renderMarkdown(selectedTool.changelog),
+                    __html: renderMarkdown(selectedTool.changelog || ""),
                   }}
                 />
               </div>

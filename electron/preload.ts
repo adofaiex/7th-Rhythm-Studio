@@ -30,12 +30,12 @@ contextBridge.exposeInMainWorld("require", require)
 contextBridge.exposeInMainWorld("process", process)
 
 contextBridge.exposeInMainWorld("electronAPI", {
-  windowControl: (action: any) => ipcRenderer.invoke("window-control", action),
+  windowControl: (action: string) => ipcRenderer.invoke("window-control", action),
 
   clearCache: () => ipcRenderer.invoke("clear-cache"),
 
-  onWindowStateChanged: (callback: Function) => {
-    ipcRenderer.on("window-state-changed", (event, state) => callback(state))
+  onWindowStateChanged: (callback: (state: unknown) => void) => {
+    ipcRenderer.on("window-state-changed", (_event, state) => callback(state))
   },
 
   removeAllListeners: (channel: string) => {
@@ -43,32 +43,32 @@ contextBridge.exposeInMainWorld("electronAPI", {
   },
 
   // 网络请求API
-  fetch: (...args: any[]) => ipcRenderer.invoke("fetch", ...args),
+  fetch: (...args: [string, RequestInit?]) => ipcRenderer.invoke("fetch", ...args),
 
   // 下载相关API
-  startDownload: (data: any) => ipcRenderer.invoke("start-download", data),
+  startDownload: (data: unknown) => ipcRenderer.invoke("start-download", data),
   pauseDownload: (downloadId: string) => ipcRenderer.invoke("pause-download", downloadId),
   resumeDownload: (downloadId: string) => ipcRenderer.invoke("resume-download", downloadId),
   cancelDownload: (downloadId: string) => ipcRenderer.invoke("cancel-download", downloadId),
 
-  onDownloadProgress: (callback: Function) => {
-    ipcRenderer.on("download-progress", (event, data) => callback(data))
+  onDownloadProgress: (callback: (data: unknown) => void) => {
+    ipcRenderer.on("download-progress", (_event, data) => callback(data))
   },
 
-  onDownloadComplete: (callback: Function) => {
-    ipcRenderer.on("download-complete", (event, data) => callback(data))
+  onDownloadComplete: (callback: (data: unknown) => void) => {
+    ipcRenderer.on("download-complete", (_event, data) => callback(data))
   },
 
-  onDownloadError: (callback: Function) => {
-    ipcRenderer.on("download-error", (event, data) => callback(data))
+  onDownloadError: (callback: (data: unknown) => void) => {
+    ipcRenderer.on("download-error", (_event, data) => callback(data))
   },
 
-  onDownloadPaused: (callback: Function) => {
-    ipcRenderer.on("download-paused", (event, data) => callback(data))
+  onDownloadPaused: (callback: (data: unknown) => void) => {
+    ipcRenderer.on("download-paused", (_event, data) => callback(data))
   },
 
-  onDownloadResumed: (callback: Function) => {
-    ipcRenderer.on("download-resumed", (event, data) => callback(data))
+  onDownloadResumed: (callback: (data: unknown) => void) => {
+    ipcRenderer.on("download-resumed", (_event, data) => callback(data))
   },
 
   // 本地文件管理API - 更新为使用工具ID

@@ -62,7 +62,7 @@ export const getCurrentIFrameInfo = () => {
   }
 }
 
-type Props = {
+export type IFrameProps = {
   src: string
   className?: string
   style?: React.CSSProperties
@@ -82,7 +82,7 @@ export type IFrameControl = {
   iframe: HTMLIFrameElement | null
 }
 
-const IFrame: React.ForwardRefExoticComponent<Props & React.RefAttributes<any>> = forwardRef<any, Props>(({
+const IFrame = forwardRef<IFrameControl, IFrameProps>(({
   src,
   className = "",
   style = {},
@@ -135,7 +135,11 @@ const IFrame: React.ForwardRefExoticComponent<Props & React.RefAttributes<any>> 
     if (iframe) {
       setIsLoading(true)
       setHasError(false)
-      iframe.src = iframe.src
+      try {
+        (iframe.contentWindow as Window | null)?.location.reload()
+      } catch (_e) {
+        iframe.src = src
+      }
     }
   }
 

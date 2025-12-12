@@ -1,4 +1,10 @@
+type Theme = "light" | "dark" | "system"
+
 class ThemeManager {
+  private currentTheme: Theme
+  private systemTheme: Exclude<Theme, "system">
+  private actualTheme: Exclude<Theme, "system">
+
   constructor() {
     this.currentTheme = "system"
     this.systemTheme = "light"
@@ -12,7 +18,7 @@ class ThemeManager {
     // 从本地存储获取用户设置的主题
     const savedTheme = localStorage.getItem("app-theme")
     if (savedTheme) {
-      this.currentTheme = savedTheme
+      this.currentTheme = savedTheme as Theme
     }
 
     // 监听系统主题变化
@@ -34,7 +40,7 @@ class ThemeManager {
     })
   }
 
-  setTheme(theme) {
+  setTheme(theme: Theme) {
     this.currentTheme = theme
     localStorage.setItem("app-theme", theme)
     this.applyTheme()
@@ -48,25 +54,25 @@ class ThemeManager {
   }
 
   applyTheme() {
-    let themeToApply = this.currentTheme
+    let themeToApply: Theme | Exclude<Theme, "system"> = this.currentTheme
 
     if (this.currentTheme === "system") {
       themeToApply = this.systemTheme
     }
 
-    this.actualTheme = themeToApply
+    this.actualTheme = (themeToApply === "system" ? this.systemTheme : themeToApply)
 
     // 移除现有主题类
     document.documentElement.classList.remove("theme-light", "theme-dark")
 
     // 添加新主题类
-    document.documentElement.classList.add(`theme-${themeToApply}`)
+    document.documentElement.classList.add(`theme-${themeToApply === "system" ? this.systemTheme : themeToApply}`)
 
     // 设置CSS变量
-    this.setCSSVariables(themeToApply)
+    this.setCSSVariables(themeToApply === "system" ? this.systemTheme : themeToApply)
   }
 
-  setCSSVariables(theme) {
+  setCSSVariables(theme: Exclude<Theme, "system">) {
     const root = document.documentElement
 
     if (theme === "dark") {
@@ -142,7 +148,7 @@ const themeManager = new ThemeManager()
 
 // 导出实例和便捷函数
 export default themeManager
-export const setTheme = (theme) => themeManager.setTheme(theme)
+export const setTheme = (theme: Theme) => themeManager.setTheme(theme)
 export const getCurrentTheme = () => themeManager.getCurrentTheme()
 export const getActualTheme = () => themeManager.getActualTheme()
 export const getThemeOptions = () => themeManager.getThemeOptions()

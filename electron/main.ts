@@ -28,10 +28,7 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 
 
 let win: BrowserWindow | null
 let updateWin: BrowserWindow | null
-declare global {
-  var downloadPath: string | null
-}
-global.downloadPath = null
+let customDownloadPath: string | null = null
 
 // 初始化下载路径设置
 function initDownloadPath() {
@@ -40,7 +37,7 @@ function initDownloadPath() {
     if (fs.existsSync(configPath)) {
       const config: any = JSON.parse(fs.readFileSync(configPath, "utf8"))
       if (config.downloadPath) {
-        global.downloadPath = config.downloadPath
+        customDownloadPath = config.downloadPath
       }
     }
   } catch (error) {
@@ -64,7 +61,7 @@ function saveDownloadPath(downloadPath: string) {
     
     // 保存配置
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2), "utf8")
-    global.downloadPath = downloadPath
+    customDownloadPath = downloadPath
     
     return true
   } catch (error) {
@@ -170,7 +167,7 @@ const downloadLastUpdate = new Map() // 存储上次更新时间和字节数
 // 获取下载目录
 function getDownloadPath() {
   // 尝试从本地存储获取自定义路径
-  const customPath = global.downloadPath
+  const customPath = customDownloadPath
   if (customPath && fs.existsSync(path.dirname(customPath))) {
     return customPath
   }
@@ -791,7 +788,7 @@ ipcMain.handle("set-download-path", async (event, newPath) => {
     if (!newPath || newPath.trim() === "") {
       targetPath = path.join(require("os").homedir(), "Downloads", "ADOFAI-Tools")
       // 清除自定义路径设置
-      global.downloadPath = null
+      customDownloadPath = null
       const configPath = path.join(require("os").homedir(), ".adofai-tools-config.json")
       try {
         if (fs.existsSync(configPath)) {

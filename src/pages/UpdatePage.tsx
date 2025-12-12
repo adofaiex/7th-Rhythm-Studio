@@ -68,6 +68,11 @@ const UpdatePage: React.FC = () => {
 
   const handleAppUpdate = async () => {
     try {
+      if (!window.electronAPI) {
+        setStatus('error');
+        setMessage('桌面功能不可用');
+        return;
+      }
       const platform = getPlatform();
       const updateUrl = updateInfo!.update[platform as keyof UpdateInfo["update"]];
       if (updateUrl) {
@@ -85,7 +90,11 @@ const UpdatePage: React.FC = () => {
 
   const finishUpdate = async () => {
     try {
-      await window.electronAPI.finishUpdate();
+      if (window.electronAPI) {
+        await window.electronAPI.finishUpdate();
+      } else {
+        window.close();
+      }
     } catch (error) {
       if (window.electronAPI) {
         window.electronAPI.windowControl('close');

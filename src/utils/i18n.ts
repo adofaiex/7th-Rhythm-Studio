@@ -1,4 +1,15 @@
+type TranslationValue = string | TranslationObject
+interface TranslationObject {
+  [key: string]: TranslationValue
+}
+
 class I18n {
+  currentLanguage: string
+  translations: Record<string, TranslationObject>
+  fallbackLanguage: string
+  loadedLanguages: Set<string>
+  externalLanguages: Set<string>
+  
   constructor() {
     this.currentLanguage = "zh-CN"
     this.translations = {}
@@ -42,7 +53,7 @@ class I18n {
   }
 
   detectSystemLanguage() {
-    const systemLang = navigator.language || navigator.userLanguage
+    const systemLang = navigator.language
     const supportedLanguages = ["zh-CN", "en-US", "ja-JP", "ko-KR"]
 
     // 精确匹配
@@ -59,7 +70,7 @@ class I18n {
       ko: "ko-KR",
     }
 
-    return langMap[langCode] || "en-US"
+    return langMap[langCode as keyof typeof langMap] || "en-US"
   }
 
   async loadExternalLanguagesList() {
@@ -73,7 +84,7 @@ class I18n {
     }
   }
 
-  async loadLanguage(language) {
+  async loadLanguage(language: string) {
     if (this.loadedLanguages.has(language)) {
       return
     }
@@ -85,7 +96,7 @@ class I18n {
         try {
           const translations = await window.electronAPI.readExternalLanguage(language)
           if (translations) {
-            this.translations[language] = translations
+            this.translations[language] = translations as TranslationObject
             this.loadedLanguages.add(language)
             console.log(`Loaded external language file: ${language}`)
             return
@@ -99,7 +110,7 @@ class I18n {
       try {
         const translations = await window.electronAPI.readBuiltinLanguage(language)
         if (translations) {
-          this.translations[language] = translations
+          this.translations[language] = translations as TranslationObject
           this.loadedLanguages.add(language)
           console.log(`Loaded built-in language file: ${language}`)
           return
@@ -113,7 +124,7 @@ class I18n {
         const response = await fetch(`/src/locales/${language}.json`)
         if (response.ok) {
           const translations = await response.json()
-          this.translations[language] = translations
+          this.translations[language] = translations as TranslationObject
           this.loadedLanguages.add(language)
           console.log(`Loaded language file via fetch: ${language}`)
           return
@@ -126,7 +137,7 @@ class I18n {
     console.error(`Failed to load language: ${language}`)
   }
 
-  async setLanguage(language) {
+  async setLanguage(language: string) {
     if (language === this.currentLanguage) {
       return
     }
@@ -143,14 +154,14 @@ class I18n {
     )
   }
 
-  t(key, params = {}) {
+  t(key: string, params: Record<string, string | number> = {}) {
     const keys = key.split(".")
-    let value = this.translations[this.currentLanguage]
+    let value: TranslationValue | null = this.translations[this.currentLanguage]
 
     // 尝试从当前语言获取翻译
     for (const k of keys) {
-      if (value && typeof value === "object" && k in value) {
-        value = value[k]
+      if (value && typeof value === "object" && k in (value as TranslationObject)) {
+        value = (value as TranslationObject)[k]
       } else {
         value = null
         break
@@ -161,8 +172,8 @@ class I18n {
     if (value === null && this.currentLanguage !== this.fallbackLanguage) {
       value = this.translations[this.fallbackLanguage]
       for (const k of keys) {
-        if (value && typeof value === "object" && k in value) {
-          value = value[k]
+        if (value && typeof value === "object" && k in (value as TranslationObject)) {
+          value = (value as TranslationObject)[k]
         } else {
           value = null
           break
@@ -178,12 +189,13 @@ class I18n {
 
     // 参数替换
     if (typeof value === "string" && Object.keys(params).length > 0) {
-      return value.replace(/\{\{(\w+)\}\}/g, (match, param) => {
-        return params[param] || match
+      return (value as string).replace(/\{\{(\w+)\}\}/g, (_match, param: string) => {
+        const p = params[param]
+        return p !== undefined ? String(p) : `{{${param}}}`
       })
     }
 
-    return value
+    return value as string
   }
 
   getCurrentLanguage() {
@@ -208,14 +220,21 @@ class I18n {
     return [...builtinLanguages, ...externalLanguages]
   }
 
-  getLanguageDisplayName(code) {
+  getLanguageDisplayName(code: string) {
     // 尝试从已加载的翻译中获取语言名称
-    if (this.translations[code] && this.translations[code].app && this.translations[code].app.languageName) {
-      return this.translations[code].app.languageName
+    const langData = this.translations[code]
+    if (langData && typeof langData === "object") {
+      const appSection = (langData as TranslationObject)["app"]
+      if (appSection && typeof appSection === "object") {
+        const name = (appSection as TranslationObject)["languageName"]
+        if (typeof name === "string") {
+          return name
+        }
+      }
     }
 
     // 默认显示名称映射
-    const defaultNames = {
+    const defaultNames: Record<string, string> = {
       "zh-CN": "简体中文",
       "en-US": "English", 
       "ja-JP": "日本語",
@@ -250,7 +269,7 @@ class I18n {
     return defaultNames[code] || code
   }
 
-  async selectAndImportLanguageFile() {
+  async selectAndImportLanguageFile(): Promise<string | null> {
     try {
       if (!window.electronAPI) {
         throw new Error("This feature is only available in the desktop app")
@@ -263,7 +282,7 @@ class I18n {
       }
 
       // 从文件名推断语言代码
-      const fileName = filePath.split(/[/\\]/).pop().replace(".json", "")
+      const fileName = filePath.split(/[/\\]/).pop()!.replace(".json", "")
       const language = fileName.includes("-") ? fileName : `${fileName}-CUSTOM`
 
       // 导入文件（复制到用户数据目录）
@@ -283,7 +302,7 @@ class I18n {
     }
   }
 
-  async deleteExternalLanguage(language) {
+  async deleteExternalLanguage(language: string): Promise<boolean> {
     try {
       if (!window.electronAPI) {
         throw new Error("This feature is only available in the desktop app")
@@ -311,7 +330,7 @@ class I18n {
     }
   }
 
-  async refreshExternalLanguages() {
+  async refreshExternalLanguages(): Promise<void> {
     try {
       await this.loadExternalLanguagesList()
       
@@ -326,7 +345,7 @@ class I18n {
   }
 
   // 保留原有的importLanguageFile方法用于向后兼容（浏览器环境）
-  async importLanguageFile(file) {
+  async importLanguageFile(file: File): Promise<string> {
     try {
       const text = await file.text()
       const translations = JSON.parse(text)
@@ -340,7 +359,7 @@ class I18n {
       const fileName = file.name.replace(".json", "")
       const language = fileName.includes("-") ? fileName : `${fileName}-CUSTOM`
 
-      this.translations[language] = translations
+      this.translations[language] = translations as TranslationObject
       this.loadedLanguages.add(language)
 
       console.log(`Imported language file (temporary): ${language}`)
@@ -351,13 +370,13 @@ class I18n {
     }
   }
 
-  validateLanguageFile(translations) {
+  validateLanguageFile(translations: any): boolean {
     // 基本结构验证
     const requiredKeys = ["common", "app", "tools"]
     return requiredKeys.every((key) => key in translations)
   }
 
-  exportLanguageFile(language = this.currentLanguage) {
+  exportLanguageFile(language: string = this.currentLanguage): void {
     const translations = this.translations[language]
     if (!translations) {
       throw new Error(`Language ${language} not found`)
@@ -383,12 +402,12 @@ const i18n = new I18n()
 
 // 导出实例和便捷函数
 export default i18n
-export const t = (key, params) => i18n.t(key, params)
-export const setLanguage = (language) => i18n.setLanguage(language)
+export const t = (key: string, params?: Record<string, string | number>) => i18n.t(key, params ?? {})
+export const setLanguage = (language: string) => i18n.setLanguage(language)
 export const getCurrentLanguage = () => i18n.getCurrentLanguage()
 export const getSupportedLanguages = () => i18n.getSupportedLanguages()
 export const selectAndImportLanguageFile = () => i18n.selectAndImportLanguageFile()
-export const deleteExternalLanguage = (language) => i18n.deleteExternalLanguage(language)
+export const deleteExternalLanguage = (language: string) => i18n.deleteExternalLanguage(language)
 export const refreshExternalLanguages = () => i18n.refreshExternalLanguages()
-export const exportLanguageFile = (language) => i18n.exportLanguageFile(language)
-export const importLanguageFile = (file) => i18n.importLanguageFile(file)
+export const exportLanguageFile = (language?: string) => i18n.exportLanguageFile(language ?? i18n.getCurrentLanguage())
+export const importLanguageFile = (file: File) => i18n.importLanguageFile(file)

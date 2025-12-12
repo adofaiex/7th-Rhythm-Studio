@@ -2,7 +2,7 @@ const appVersion = "1.0.1"
 const asarVersion = "1.0.0"
 
 // 版本比较函数
-function compareVersions(version1, version2) {
+function compareVersions(version1: string, version2: string) {
   const v1 = version1.split('.').map(Number);
   const v2 = version2.split('.').map(Number);
   for (let i = 0; i < Math.max(v1.length, v2.length); i++) {
@@ -21,17 +21,17 @@ export default {
   compareVersions,
   
   // 检查是否需要软件更新
-  needsAppUpdate(remoteVersion) {
+  needsAppUpdate(remoteVersion: string) {
     return compareVersions(appVersion, remoteVersion) < 0;
   },
   
   // 检查是否需要热更新
-  needsHotUpdate(remoteVersion) {
+  needsHotUpdate(remoteVersion: string) {
     return compareVersions(asarVersion, remoteVersion) < 0;
   },
   
   // 检查是否需要强制更新（基于最低支持版本）
-  needsForceUpdate(minVersion) {
+  needsForceUpdate(minVersion: string) {
     return compareVersions(appVersion, minVersion) < 0;
   }
 }
