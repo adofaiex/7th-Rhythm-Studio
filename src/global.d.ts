@@ -20,6 +20,16 @@ declare global {
       importLanguageFile: (filePath: string, languageCode: string) => Promise<boolean>
       deleteExternalLanguage: (language: string) => Promise<boolean>
       selectLanguageFile: () => Promise<string | null>
+      startDownload: (data: { downloadId: string; url: string; toolId: string; toolName?: string; toolVersion?: string }) => Promise<boolean>
+      pauseDownload: (downloadId: string) => Promise<boolean>
+      resumeDownload: (downloadId: string) => Promise<boolean>
+      cancelDownload: (downloadId: string) => Promise<boolean>
+      onDownloadProgress: (callback: (data: unknown) => void) => void
+      onDownloadComplete: (callback: (data: unknown) => void) => void
+      onDownloadError: (callback: (data: unknown) => void) => void
+      onDownloadPaused: (callback: (data: unknown) => void) => void
+      onDownloadResumed: (callback: (data: unknown) => void) => void
+      removeAllListeners: (channel: string) => void
     }
     ipcRenderer?: {
       on: (channel: string, listener: (event: unknown, ...args: unknown[]) => void) => void
