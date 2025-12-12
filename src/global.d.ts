@@ -10,7 +10,8 @@ declare global {
       checkUpdate: () => Promise<{ version: string; min_version?: string; update: { windows?: string; macos?: string } }>
       handleAppUpdate: (url: string) => Promise<void>
       finishUpdate: () => Promise<void>
-      windowControl: (action: string) => void
+      windowControl: (action: string) => Promise<boolean>
+      onWindowStateChanged: (callback: (state: string) => void) => void
       selectFolder: () => Promise<{ success: boolean; path?: string }>
       setDownloadPath: (path: string) => Promise<{ success: boolean; path?: string; error?: string }>
       getDownloadPath: () => Promise<string>
